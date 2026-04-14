@@ -1,0 +1,43 @@
+# Development image on top of base dependencies
+FROM casimirfeldmann/diskchungs:jetson_base AS dev-jetson
+
+# Boost serialization compatibility fix for ORB-SLAM3
+RUN cp /usr/include/boost/serialization/list.hpp /usr/include/boost/serialization/list.hpp.backup && \
+    sed -i 's/const boost::serialization::library_version_type library_version(/const boost::serialization::item_version_type library_version(/g' /usr/include/boost/serialization/list.hpp && \
+    sed -i 's/if(boost::serialization::library_version_type(3) < library_version){/if(boost::serialization::item_version_type(3) < library_version){/g' /usr/include/boost/serialization/list.hpp
+
+
+# Install Python packages for development
+RUN pip3 install --index-url https://pypi.org/simple/ \
+    optuna optuna-dashboard networkx==2.8.8 opencv-python==4.10.0.84 pynput
+
+# Install Python packages for evaluation
+RUN pip3 install --index-url https://pypi.org/simple/ \
+    torchmetrics==1.7.4 evo
+
+RUN pip3 install --index-url https://pypi.org/simple/ \
+    numpy==1.26.4
+
+# Install additional development tools
+RUN apt-get update && apt-get install -y \
+    vim \
+    gdb \
+    tmux \
+    htop \
+    git-lfs \
+    clang-format \
+    && rm -rf /var/lib/apt/lists/*
+
+
+# Update library paths
+WORKDIR /workspace
+RUN echo "export LD_LIBRARY_PATH=/workspace/repo/third_party/ORB-SLAM3/lib:\$LD_LIBRARY_PATH" >> /root/.bashrc
+
+WORKDIR /workspace/repo
+
+# Copy entrypoint script
+COPY docker/docker-entrypoint.sh /
+RUN chmod +x /docker-entrypoint.sh
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["bash"]

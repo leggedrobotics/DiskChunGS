@@ -1,0 +1,44 @@
+<launch>
+
+  <!-- Required parameters -->
+  <arg name="vocabulary_path" />
+  <arg name="orb_settings_path" />
+  <arg name="gaussian_settings_path" />
+  <arg name="output_directory" />
+
+  <!-- Sensor mode: stereo, rgbd, mono -->
+  <arg name="mode" default="stereo" />
+
+  <!-- SLAM mode: orbslam, external -->
+  <arg name="slam_mode" default="orbslam" />
+
+  <!-- Topic names -->
+  <arg name="image_topic"  default="/camera/image_raw" />
+  <arg name="right_topic"  default="/camera/right/image_raw" />
+  <arg name="depth_topic"  default="/camera/depth/image_raw" />
+
+  <!-- TF frames for external pose mode -->
+  <arg name="target_frame" default="map" />
+  <arg name="source_frame" default="zed2i_left_camera_frame" />
+
+  <!-- Misc -->
+  <arg name="use_viewer"        default="false" />
+  <arg name="timeout_duration"  default="20.0" />
+
+  <node pkg="diskchungs_ros" type="diskchungs_ros_node" name="diskchungs_node" output="screen">
+    <param name="vocabulary_path"        value="$(arg vocabulary_path)" />
+    <param name="orb_settings_path"      value="$(arg orb_settings_path)" />
+    <param name="gaussian_settings_path" value="$(arg gaussian_settings_path)" />
+    <param name="output_directory"       value="$(arg output_directory)" />
+    <param name="mode"                   value="$(arg mode)" />
+    <param name="slam_mode"              value="$(arg slam_mode)" />
+    <param name="image_topic"            value="$(arg image_topic)" />
+    <param name="right_topic"            value="$(arg right_topic)" />
+    <param name="depth_topic"            value="$(arg depth_topic)" />
+    <param name="target_frame"           value="$(arg target_frame)" />
+    <param name="source_frame"           value="$(arg source_frame)" />
+    <param name="use_viewer"             value="$(arg use_viewer)" />
+    <param name="timeout_duration"       value="$(arg timeout_duration)" />
+  </node>
+
+</launch>

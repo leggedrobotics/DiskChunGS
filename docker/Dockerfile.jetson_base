@@ -1,0 +1,93 @@
+# Base image with all heavy dependencies
+FROM dustynv/l4t-pytorch:r36.4.0 AS base-dev-jetson
+
+# Avoid interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    wget \
+    curl \
+    gnupg2 \
+    lsb-release
+
+# Install gcc-11 and g++-11
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test -y
+RUN apt-get install -y gcc-11 g++-11
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    sudo \
+    libeigen3-dev \
+    libboost-all-dev \
+    libjsoncpp-dev \
+    libopengl-dev \
+    mesa-utils \
+    libglfw3-dev \
+    libglm-dev \
+    python3-pip \
+    python3-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    curl \
+    zip \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libswresample-dev \
+    libssl-dev \
+    python3-tk \
+    ffmpeg \
+    libopenblas-dev \
+    gfortran \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install CMake
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-Linux-aarch64.sh -O /cmake-3.22.1.sh && \
+    chmod +x /cmake-3.22.1.sh && \
+    /cmake-3.22.1.sh --skip-license --prefix=/usr/local
+
+# Install basic Python packages for building
+RUN pip3 install wheel setuptools numpy
+
+# Create workspace and directory structure
+WORKDIR /workspace
+RUN mkdir -p /workspace/third_party
+
+# Clone OpenCV and OpenCV contrib with specific commits
+WORKDIR /workspace/third_party
+RUN git clone https://github.com/opencv/opencv.git && \
+    cd opencv && \
+    git checkout a03b813 && \
+    cd .. && \
+    git clone https://github.com/opencv/opencv_contrib.git && \
+    cd opencv_contrib && \
+    git checkout b236c71
+
+# Build OpenCV
+WORKDIR /workspace
+RUN export workdir=/workspace && \
+    cmake -B third_party/opencv/build -G Ninja \
+    -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+    -DCMAKE_CUDA_ARCHITECTURES="native" \
+    -DCMAKE_BUILD_TYPE=RELEASE -DWITH_CUDA=ON -DWITH_CUDNN=ON \
+    -DWITH_CUFFT=ON -DWITH_CUBLAS=ON -DWITH_NVCUVENC=ON \
+    -DOPENCV_DNN_CUDA=ON -DWITH_NVCUVID=ON \
+    -DBUILD_TIFF=ON -DBUILD_ZLIB=ON -DBUILD_JASPER=ON -DBUILD_CCALIB=ON \
+    -DBUILD_JPEG=ON -DWITH_FFMPEG=ON \
+    -DOPENCV_EXTRA_MODULES_PATH=/workspace/third_party/opencv_contrib/modules \
+    -DCMAKE_INSTALL_PREFIX=/workspace/third_party/install/opencv \
+    third_party/opencv && \
+    cmake --build third_party/opencv/build && \
+    cmake --install third_party/opencv/build
+
+# Create workspace subdirectories
+RUN mkdir -p /workspace/bin /workspace/build /workspace/src
+
+CMD ["bash"]

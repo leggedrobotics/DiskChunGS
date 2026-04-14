@@ -1,0 +1,25 @@
+{
+    "name": "DiskChunGS Development",
+    "dockerComposeFile": "../docker/docker-compose.yml",
+    "service": "dev",
+    "workspaceFolder": "/workspace/repo",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "twxs.cmake",
+                "ms-vscode.cpptools-extension-pack",
+                "xaver.clang-format",
+                "mhutchie.git-graph"
+            ],
+            "settings": {
+                "cmake.buildDirectory": "${workspaceFolder}/build",
+                "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools"
+            }
+        }
+    },
+    "postCreateCommand": "curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add - && apt-get update && apt-get install -y gdb && pip install clang-format",
+    "remoteUser": "root",
+    "overrideCommand": false
+}

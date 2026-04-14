@@ -1,0 +1,12 @@
+[submodule "third_party/xfeat_cpp"]
+	path = third_party/xfeat_cpp
+	url = https://github.com/casimirfeldmann/xfeat_cpp
+[submodule "third_party/depth-anything-tensorrt"]
+	path = third_party/depth-anything-tensorrt
+	url = https://github.com/casimirfeldmann/depth-anything-tensorrt
+[submodule "third_party/ORB-SLAM3"]
+	path = third_party/ORB-SLAM3
+	url = https://github.com/casimirfeldmann/ORB_SLAM3
+[submodule "third_party/gaussian_splatting"]
+	path = third_party/gaussian_splatting
+	url = git@github.com:leggedrobotics/DiskChunGS-Inria.git

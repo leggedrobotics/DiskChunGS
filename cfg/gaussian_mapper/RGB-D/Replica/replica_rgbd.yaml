@@ -1,0 +1,59 @@
+%YAML:1.0
+
+Model.white_background: 0  # 0:false, 1 or other integer:true
+Model.sh_degree: 3
+Model.max_gaussians_in_memory: 1500000
+Model.init_proba_scaler: 2.0
+Model.downsample_for_sampling: 0
+
+Camera.z_near: 0.01
+Camera.z_far: 100.0
+
+Mapper.min_depth_: 0.01
+Mapper.max_depth_: 100.0
+Mapper.min_num_initial_map_kfs: 10
+Mapper.new_keyframe_times_of_use: 8
+Mapper.local_BA_increased_times_of_use: 0
+Mapper.loop_closure_increased_times_of_use_: 2
+Mapper.large_rotation_threshold: 1.0
+Mapper.large_translation_threshold: 0.1
+Mapper.stable_num_iter_existence: 1
+
+GausPyramid.num_levels: 1
+GausPyramid.level_times_of_use: 5
+
+Pipeline.convert_SHs: 0  # 0:false, 1 or other integer:true
+Pipeline.compute_cov3D: 0  # 0:false, 1 or other integer:true
+
+Record.keyframe_record_interval: 0 # 0:never, 1:always, others:periodically
+Record.all_keyframes_record_interval: 0 # 0:never, 1:always, others:periodically
+Record.record_rendered_image: 1 # 0:false, 1 or other integer:true
+Record.record_ground_truth_image: 1 # 0:false, 1 or other integer:true
+Record.record_loss_image: 0 # 0:false, 1 or other integer:true
+Record.training_report_interval: 0 # 0:never, 1:always, others:periodically
+Record.record_loop_ply: 0 # 0:false, 1 or other integer:trues
+
+
+Chunking.chunk_size: 10.0
+
+Optimization.auto_distribute: 4  # 0:false, 1 or other integer:true
+Optimization.max_num_iterations: -1
+Optimization.smooth_l1: 0  # 0:false, 1:true
+Optimization.position_lr_init: 0.00005
+Optimization.position_lr_decay: 0.99998
+Optimization.feature_lr: 0.005
+Optimization.opacity_lr: 0.1
+Optimization.scaling_lr: 0.01
+Optimization.rotation_lr: 0.002
+Optimization.pose_lr: 0.0000
+Optimization.exposure_lr: 0.00
+Optimization.depth_scale_bias_lr: 0.0001
+Optimization.lambda_dssim: 0.2
+Optimization.lambda_depth: 0.1
+Optimization.exposure_optimization: 0 # 0:false, 1 or other integer:true
+
+GaussianViewer.glfw_window_width: 1400
+GaussianViewer.glfw_window_height: 1050
+GaussianViewer.image_scale: 0.5
+GaussianViewer.image_scale_main: 1.0
+GaussianViewer.camera_watch_dist: 0.000001

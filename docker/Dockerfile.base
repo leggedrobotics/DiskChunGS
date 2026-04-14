@@ -1,0 +1,238 @@
+# Base image with all heavy dependencies
+FROM nvidia/cuda:11.8.0-cudnn8-devel-ubuntu20.04 AS base-dev
+
+# Avoid interactive prompts during build
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Add ROS repository and keys
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    wget \
+    curl \
+    gnupg2 \
+    lsb-release
+RUN sh -c 'echo "deb http://packages.ros.org/ros/ubuntu $(lsb_release -sc) main" > /etc/apt/sources.list.d/ros-latest.list'
+RUN curl -s https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc | apt-key add -
+
+# Remove system OpenCV and all related files
+RUN apt-get update && \
+    apt-get remove -y libopencv* python3-opencv && \
+    apt-get autoremove -y && \
+    rm -rf /usr/include/opencv* /usr/include/opencv2 /usr/include/opencv4 && \
+    rm -rf /lib/x86_64-linux-gnu/libopencv* /usr/lib/x86_64-linux-gnu/libopencv* && \
+    rm -rf /usr/local/include/opencv* /usr/local/include/opencv2
+
+# Install ROS Noetic without recommended packages to avoid OpenCV
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ros-noetic-desktop-full \
+    python3-rosdep \
+    python3-rosinstall \
+    python3-rosinstall-generator \
+    python3-wstool \
+    build-essential
+
+# Initialize rosdep
+RUN rosdep init && rosdep update
+
+# Install gcc-11
+RUN add-apt-repository ppa:ubuntu-toolchain-r/test -y
+RUN apt-get install -y gcc-11 g++-11
+RUN update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100 && \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    sudo \
+    libeigen3-dev \
+    libboost-all-dev \
+    libjsoncpp-dev \
+    libopengl-dev \
+    mesa-utils \
+    libglfw3-dev \
+    libglm-dev \
+    python3-pip \
+    python3-dev \
+    libjpeg-dev \
+    libpng-dev \
+    libtiff-dev \
+    curl \
+    zip \
+    libavcodec-dev \
+    libavformat-dev \
+    libswscale-dev \
+    libswresample-dev \
+    libssl-dev \
+    python3-catkin-tools \
+    python3-tk \
+    ffmpeg \
+    libopenblas-dev \
+    gfortran \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install CMake
+RUN wget https://github.com/Kitware/CMake/releases/download/v3.22.1/cmake-3.22.1-Linux-x86_64.sh -O /cmake-3.22.1.sh && \
+    chmod +x /cmake-3.22.1.sh && \
+    /cmake-3.22.1.sh --skip-license --prefix=/usr/local
+
+# Install basic Python packages for building
+RUN pip3 install wheel setuptools numpy
+
+# Create workspace and directory structure
+WORKDIR /workspace
+RUN mkdir -p /workspace/third_party
+
+# Clone OpenCV and OpenCV contrib with specific commits
+WORKDIR /workspace/third_party
+RUN git clone https://github.com/opencv/opencv.git && \
+    cd opencv && \
+    git checkout a03b813 && \
+    cd .. && \
+    git clone https://github.com/opencv/opencv_contrib.git && \
+    cd opencv_contrib && \
+    git checkout b236c71
+
+# Download and extract libtorch
+WORKDIR /workspace/third_party
+RUN wget -c https://download.pytorch.org/libtorch/cu121/libtorch-cxx11-abi-shared-with-deps-2.3.1%2Bcu121.zip && \
+    unzip libtorch-cxx11-abi-shared-with-deps-2.3.1+cu121.zip && \
+    rm libtorch-cxx11-abi-shared-with-deps-2.3.1+cu121.zip
+
+# Fix nvrtc bug
+WORKDIR /workspace/third_party/libtorch/lib
+RUN ln -s libnvrtc-builtins-6c5639ce.so.12.1 libnvrtc-builtins.so.12.1
+
+# Build OpenCV
+WORKDIR /workspace
+RUN export workdir=/workspace && \
+    cmake -B third_party/opencv/build -G Ninja \
+    -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+    -DCMAKE_CUDA_ARCHITECTURES="native" \
+    -DCMAKE_BUILD_TYPE=RELEASE -DWITH_CUDA=ON -DWITH_CUDNN=ON \
+    -DWITH_CUFFT=ON -DWITH_CUBLAS=ON -DWITH_NVCUVENC=ON \
+    -DOPENCV_DNN_CUDA=ON -DWITH_NVCUVID=ON \
+    -DBUILD_TIFF=ON -DBUILD_ZLIB=ON -DBUILD_JASPER=ON -DBUILD_CCALIB=ON \
+    -DBUILD_JPEG=ON -DWITH_FFMPEG=ON \
+    -DOPENCV_EXTRA_MODULES_PATH=/workspace/third_party/opencv_contrib/modules \
+    -DCMAKE_INSTALL_PREFIX=/workspace/third_party/install/opencv \
+    third_party/opencv && \
+    cmake --build third_party/opencv/build -j 8 && \
+    cmake --install third_party/opencv/build
+
+# Create environment setup script for OpenCV
+RUN echo '#!/bin/bash' > /workspace/setup_env.sh && \
+    echo 'export LD_PRELOAD=/workspace/third_party/install/opencv/lib/libopencv_core.so.410:/workspace/third_party/install/opencv/lib/libopencv_imgproc.so.410:/workspace/third_party/install/opencv/lib/libopencv_imgcodecs.so.410:/workspace/third_party/install/opencv/lib/libopencv_videoio.so.410:/workspace/third_party/install/opencv/lib/libopencv_highgui.so.410' >> /workspace/setup_env.sh && \
+    echo 'export OPENCV_PATH=/workspace/third_party/opencv' >> /workspace/setup_env.sh && \
+    echo 'export OpenCV_DIR=/workspace/third_party/install/opencv/lib/cmake/opencv4' >> /workspace/setup_env.sh && \
+    echo 'export LD_LIBRARY_PATH=/workspace/third_party/install/opencv/lib:$LD_LIBRARY_PATH' >> /workspace/setup_env.sh && \
+    chmod +x /workspace/setup_env.sh
+
+# Rebuild cv_bridge against custom OpenCV - use bash explicitly for source command
+RUN mkdir -p /ws_cv_bridge/src && \
+    cd /ws_cv_bridge/src && \
+    git clone https://github.com/ros-perception/vision_opencv.git && \
+    cd vision_opencv && \
+    git checkout noetic && \
+    cd ../.. && \
+    bash -c "source /opt/ros/noetic/setup.bash && \
+    catkin_make install \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX=/opt/ros/noetic \
+    -DOPENCV_VERSION_MAJOR=4 \
+    -DOpenCV_DIR=/workspace/third_party/install/opencv/lib/cmake/opencv4 \
+    -DCMAKE_INSTALL_RPATH=/workspace/third_party/install/opencv/lib \
+    -DCMAKE_BUILD_WITH_INSTALL_RPATH=TRUE"
+
+# Install Magma for PyTorch
+WORKDIR /workspace/third_party
+RUN wget http://icl.utk.edu/projectsfiles/magma/downloads/magma-2.7.1.tar.gz && \
+    tar -xvf magma-2.7.1.tar.gz && \
+    rm magma-2.7.1.tar.gz && \
+    cd magma-2.7.1 && \
+    CUDA_DIR=/usr/local/cuda && \
+    cmake -DGPU_TARGET=sm_80 \
+    -DCMAKE_CUDA_COMPILER=/usr/local/cuda/bin/nvcc \
+    -DCMAKE_INSTALL_PREFIX=build/target . -Bbuild && \
+    cmake --build build -j $(nproc) --target install
+# Correctly copy Magma files from the magma-2.7.1 directory
+# Create directories first to ensure they exist
+RUN mkdir -p /usr/local/include/ && \
+    mkdir -p /usr/local/lib/ && \
+    mkdir -p /usr/local/lib/pkgconfig/
+
+# Then copy the files in a separate command to troubleshoot any issues
+RUN cp /workspace/third_party/magma-2.7.1/build/target/include/* /usr/local/include/ && \
+    cp /workspace/third_party/magma-2.7.1/build/target/lib/*.so /usr/local/lib/ && \
+    cp /workspace/third_party/magma-2.7.1/build/target/lib/pkgconfig/*.pc /usr/local/lib/pkgconfig/
+
+# Build PyTorch 
+WORKDIR /workspace/third_party
+RUN git clone --recursive https://github.com/pytorch/pytorch.git && \
+    cd pytorch && \
+    git checkout v2.3.1 && \
+    git submodule sync && \
+    git submodule update --init --recursive && \
+    pip install -r requirements.txt && \
+    GLIBCXX_USE_CXX11_ABI=1 \
+    USE_CUDA=1 \
+    CUDA_HOME=/usr/local/cuda \
+    TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6" \
+    BUILD_TEST=0 \
+    USE_DISTRIBUTED=0 \
+    USE_MKLDNN=1 \
+    USE_OPENMP=1 \
+    CMAKE_PREFIX_PATH=${CONDA_PREFIX:-"$(dirname $(which python3))/../"} \
+    MAX_JOBS=8 \
+    python3 setup.py install
+
+# Build torchvision
+WORKDIR /workspace/third_party
+RUN git clone https://github.com/pytorch/vision.git && \
+    cd vision && \
+    git checkout v0.18.1 && \
+    GLIBCXX_USE_CXX11_ABI=1 \
+    FORCE_CUDA=1 \
+    CUDA_HOME=/usr/local/cuda \
+    TORCH_CUDA_ARCH_LIST="7.0;7.5;8.0;8.6" \
+    python3 setup.py install
+
+# Install tensorrt runtime
+RUN wget https://developer.nvidia.com/downloads/compute/machine-learning/tensorrt/secure/8.6.1/local_repos/nv-tensorrt-local-repo-ubuntu2004-8.6.1-cuda-11.8_1.0-1_amd64.deb && \
+    os="ubuntu2004" && \
+    tag="8.6.1-cuda-11.8" && \
+    dpkg -i nv-tensorrt-local-repo-${os}-${tag}_1.0-1_amd64.deb && \
+    cp /var/nv-tensorrt-local-repo-${os}-${tag}/*-keyring.gpg /usr/share/keyrings/ && \
+    echo "Package: *\nPin: origin \"\"\nPin-Priority: 1001" > /etc/apt/preferences.d/tensorrt-local && \
+    apt-get update && \
+    apt-get install -y \
+    tensorrt=8.6.1.6-1+cuda11.8 \
+    libnvinfer8=8.6.1.6-1+cuda11.8 \
+    libnvinfer-plugin8=8.6.1.6-1+cuda11.8 \
+    libnvonnxparsers8=8.6.1.6-1+cuda11.8 \
+    libnvinfer-bin=8.6.1.6-1+cuda11.8 \
+    libnvinfer-dev=8.6.1.6-1+cuda11.8 \
+    libnvinfer-plugin-dev=8.6.1.6-1+cuda11.8 \
+    libnvonnxparsers-dev=8.6.1.6-1+cuda11.8 \
+    libnvinfer-samples=8.6.1.6-1+cuda11.8 \
+    python3-libnvinfer-dev=8.6.1.6-1+cuda11.8 \
+    python3-libnvinfer=8.6.1.6-1+cuda11.8 && \
+    rm nv-tensorrt-local-repo-${os}-${tag}_1.0-1_amd64.deb && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create environment setup for all dependencies
+RUN echo 'source /opt/ros/noetic/setup.bash' >> /workspace/setup_env.sh && \
+    echo 'export LD_LIBRARY_PATH=/opt/ros/noetic/lib:/workspace/third_party/libtorch/lib:$LD_LIBRARY_PATH' >> /workspace/setup_env.sh && \
+    echo 'echo "Environment setup complete!"' >> /workspace/setup_env.sh
+
+# Create symbolic links for easier access
+RUN ln -sf /workspace/third_party/install/opencv /usr/local/opencv && \
+    ln -sf /workspace/third_party/libtorch /usr/local/libtorch
+
+# Create ROS workspace for user
+RUN mkdir -p /root/catkin_ws/src && \
+    cd /root/catkin_ws && \
+    bash -c "source /opt/ros/noetic/setup.bash && catkin init"
+
+CMD ["bash"]

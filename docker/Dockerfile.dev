@@ -1,0 +1,36 @@
+# Development image on top of base dependencies
+FROM casimirfeldmann/diskchungs:base AS dev
+
+# Refresh ROS keys automatically
+RUN apt-key adv --refresh-keys --keyserver keyserver.ubuntu.com || true && \
+    curl -sSL 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0xC1CF6E31E6BADE8868B172B4F42ED6FBAB17C654' | apt-key add - || true
+
+# Install Python packages for development
+RUN pip3 install optuna optuna-dashboard networkx==2.8.8 opencv-python==4.10.0.84 pynput
+
+# Install Python packages for evaluation
+RUN pip3 install torchmetrics==1.5.2 evo
+
+# Install additional development tools
+RUN apt-get update && apt-get install -y \
+    vim \
+    gdb \
+    tmux \
+    htop \
+    git-lfs \
+    clang-format \
+    && rm -rf /var/lib/apt/lists/*
+    
+# Update library paths
+WORKDIR /workspace
+RUN echo "export LD_LIBRARY_PATH=/workspace/repo/third_party/ORB-SLAM3/lib:\$LD_LIBRARY_PATH" >> /root/.bashrc
+RUN echo "source /opt/ros/noetic/setup.bash" >> /root/.bashrc
+
+WORKDIR /workspace/repo
+
+# Copy entrypoint script
+COPY docker/docker-entrypoint.sh /
+RUN chmod +x /docker-entrypoint.sh
+
+ENTRYPOINT ["/docker-entrypoint.sh"]
+CMD ["bash"]

@@ -1,0 +1,38 @@
+services:
+  base:
+    image: casimirfeldmann/diskchungs:jetson_base
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jetson_base
+      target: base-dev-jetson
+    profiles: ["build-base"]
+    runtime: nvidia
+    privileged: true
+    network_mode: host
+    shm_size: 20G
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+
+  dev:
+    image: jetson-dev
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.jetson_dev
+      target: dev-jetson
+    runtime: nvidia
+    privileged: true
+    network_mode: host
+    shm_size: 20G
+    volumes:
+      - ..:/workspace/repo
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /mnt/nas/casimir/datasets:/data
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    stdin_open: true

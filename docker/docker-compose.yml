@@ -1,0 +1,51 @@
+services:
+  base:
+    image: casimirfeldmann/diskchungs:base
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.base
+      target: base-dev
+    profiles: ["build-base"]  # Only build when this profile is active
+    privileged: true
+    network_mode: host
+    shm_size: 20G
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+              
+  dev:
+    image: diskchungs:dev
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.dev
+      target: dev
+    privileged: true
+    network_mode: host
+    shm_size: 20G
+    volumes:
+      - ..:/workspace/repo
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - /mnt/auxiliary1/datasets:/data
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
+    stdin_open: true
+    tty: true

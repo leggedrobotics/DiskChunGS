@@ -1,0 +1,76 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "${workspaceFolder}/bin/replica_rgbd",
+            "args": [
+                "${workspaceFolder}/third_party/ORB-SLAM3/Vocabulary/ORBvoc.txt",
+                "${workspaceFolder}/cfg/ORB_SLAM3/RGB-D/Replica/office0.yaml",
+                "${workspaceFolder}/cfg/gaussian_mapper/RGB-D/Replica/replica_rgbd.yaml",
+                "/data/Replica/office0",
+                "${workspaceFolder}/results/replica_rgbd/office0"
+            ],
+            "stopAtEntry": false,
+            "cwd": "${workspaceFolder}",
+            "environment": [
+                {
+                    "name": "DISPLAY",
+                    "value": "${env:DISPLAY}"
+                }
+            ],
+            "externalConsole": false,
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "build"
+        },
+        {
+            "name": "ROS SLAM Debug",
+            "type": "cppdbg",
+            "request": "launch",
+            "program": "/root/catkin_ws/devel/lib/diskchungs_ros/diskchungs_ros_node",
+            "cwd": "/root/catkin_ws",
+            "args": [
+                "__name:=diskchungs_node",
+                "_vocabulary_path:=${workspaceFolder}/third_party/ORB-SLAM3/Vocabulary/ORBvoc.txt",
+                "_orb_settings_path:=${workspaceFolder}/cfg/ORB_SLAM3/RGB-D/RSL/arche_train1.yaml",
+                "_gaussian_settings_path:=${workspaceFolder}/cfg/gaussian_mapper/RGB-D/RSL/arche_train1.yaml",
+                "_output_directory:=${workspaceFolder}/results/rsl/train1",
+                "_use_viewer:=true",
+                "_mode:=rgbd",
+                "_image_topic:=/left_camera_rgb",
+                "_depth_topic:=/zed2/zed_node/depth/depth_registered",
+                "_slam_mode:=external",
+                "_target_frame:=map",
+                "_source_frame:=zed2_left_camera_optical_frame"
+            ],
+            "environment": [
+                {
+                    "name": "ROS_MASTER_URI",
+                    "value": "http://localhost:11311"
+                },
+                {
+                    "name": "DISPLAY",
+                    "value": "${env:DISPLAY}"
+                },
+            ],
+            "MIMode": "gdb",
+            "setupCommands": [
+                {
+                    "description": "Enable pretty-printing for gdb",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ],
+            "preLaunchTask": "catkin_build"
+        }
+    ]
+}
